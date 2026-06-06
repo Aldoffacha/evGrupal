@@ -36,7 +36,7 @@ export default function RootLayout({
       lang="es"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex bg-gray-50">
+      <body className="min-h-full flex">
         <aside className="w-64 bg-white border-r border-gray-200 flex flex-col shrink-0">
           <div className="p-6 border-b border-gray-200">
             <Link href="/dashboard" className="text-xl font-bold text-emerald-700">
@@ -60,7 +60,7 @@ export default function RootLayout({
             <p className="text-xs text-gray-400">Farmabol v0.1.0</p>
           </div>
         </aside>
-        <main className="flex-1 overflow-auto">{children}</main>
+        <main className="flex-1 overflow-auto bg-gray-50">{children}</main>
       </body>
     </html>
   );
