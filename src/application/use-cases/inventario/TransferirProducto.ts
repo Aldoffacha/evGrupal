@@ -1,19 +1,37 @@
 import { IProductoRepository } from '@/domain/ports/IProductoRepository'
+import { ITransferenciaRepository } from '@/domain/ports/ITransferenciaRepository'
+import { Transferencia } from '@/domain/entities/Transferencia'
 
 export class TransferirProducto {
-  constructor(private repo: IProductoRepository) {}
+  constructor(
+    private productRepo: IProductoRepository,
+    private transferenciaRepo: ITransferenciaRepository
+  ) {}
 
-  async ejecutar(productoId: string, sucursalDestinoId: string, cantidad: number) {
-    const producto = await this.repo.obtenerPorId(productoId)
+  async ejecutar(
+    productoId: string,
+    sucursalDestinoId: string,
+    cantidad: number
+  ): Promise<Transferencia> {
+    if (cantidad <= 0) throw new Error('La cantidad debe ser mayor a 0')
+
+    const producto = await this.productRepo.obtenerPorId(productoId)
     if (!producto) throw new Error('Producto no encontrado')
-    if (producto.stock < cantidad) throw new Error('Stock insuficiente para transferir')
+    if (producto.sucursalId === sucursalDestinoId) {
+      throw new Error('La sucursal destino debe ser distinta a la de origen')
+    }
+    if (producto.stock < cantidad) {
+      throw new Error('Stock insuficiente para transferir')
+    }
 
-    await this.repo.actualizar(productoId, { stock: producto.stock - cantidad })
-    const [origen, destino] = await Promise.all([
-      this.repo.listarPorSucursal(producto.sucursalId),
-      this.repo.listarPorSucursal(sucursalDestinoId)
-    ])
-
-    return { success: true, mensaje: `Transferencia de ${cantidad} unidades iniciada` }
+    // Solo crea la transferencia en estado 'pendiente'.
+    // El movimiento de stock (origen/destino) lo ejecuta la cola al procesarla.
+    return this.transferenciaRepo.crear({
+      productoId: producto.id,
+      productoNombre: producto.nombre,
+      cantidad,
+      sucursalOrigenId: producto.sucursalId,
+      sucursalDestinoId,
+    })
   }
 }
