@@ -1,6 +1,6 @@
 export class FechaVencimiento {
   constructor(public readonly fecha: Date) {
-    if (fecha < new Date()) throw new Error('La fecha de vencimiento ya pasó')
+    if (isNaN(fecha.getTime())) throw new Error('Fecha de vencimiento inválida')
   }
 
   static fromString(fechaStr: string): FechaVencimiento {
@@ -11,6 +11,10 @@ export class FechaVencimiento {
     const hoy = new Date()
     const diff = this.fecha.getTime() - hoy.getTime()
     return Math.ceil(diff / (1000 * 60 * 60 * 24))
+  }
+
+  estaVencida(): boolean {
+    return this.diasRestantes() <= 0
   }
 
   estaProximoAVencer(dias: number = 30): boolean {
