@@ -1,14 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 
-const sucursales = [
-  { id: "s1", nombre: "Central" },
-  { id: "s2", nombre: "Norte" },
-  { id: "s3", nombre: "Sur" },
-];
+type Sucursal = { id: string; nombre: string };
 
 export function FormProducto() {
+  const router = useRouter();
+  const [sucursales, setSucursales] = useState<Sucursal[]>([]);
+  const [enviando, setEnviando] = useState(false);
   const [form, setForm] = useState({
     codigo: "",
     nombre: "",
@@ -16,12 +16,42 @@ export function FormProducto() {
     stock: "",
     stockMinimo: "",
     fechaVencimiento: "",
-    sucursalId: "s1",
+    sucursalId: "",
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    fetch("/api/sucursales")
+      .then((r) => r.json())
+      .then((data: Sucursal[]) => {
+        setSucursales(data);
+        if (data.length > 0) setForm((f) => ({ ...f, sucursalId: data[0].id }));
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    alert("Producto registrado con exito (modo demo)");
+    setEnviando(true);
+    try {
+      const res = await fetch("/api/productos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          codigo: form.codigo,
+          nombre: form.nombre,
+          precio: Number(form.precio),
+          stock: Number(form.stock),
+          stockMinimo: Number(form.stockMinimo),
+          fechaVencimiento: form.fechaVencimiento,
+          sucursalId: form.sucursalId,
+        }),
+      });
+      if (!res.ok) throw new Error("Error al registrar");
+      router.push("/inventario");
+    } catch {
+      alert("No se pudo registrar el producto. Verifica los datos.");
+      setEnviando(false);
+    }
   };
 
   return (
@@ -112,9 +142,10 @@ export function FormProducto() {
       <div className="flex gap-3 pt-2">
         <button
           type="submit"
-          className="px-6 py-2.5 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 transition-colors"
+          disabled={enviando}
+          className="px-6 py-2.5 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-60"
         >
-          Registrar Producto
+          {enviando ? "Registrando..." : "Registrar Producto"}
         </button>
         <button
           type="reset"
@@ -123,9 +154,6 @@ export function FormProducto() {
           Limpiar
         </button>
       </div>
-      <p className="text-xs text-gray-400 pt-2 border-t border-gray-100">
-        Modo demo: los datos no se persistiran hasta que se conecte con Supabase.
-      </p>
     </form>
   );
 }
