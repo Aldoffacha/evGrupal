@@ -9,10 +9,12 @@ interface ProductoCardProps {
   sucursal: string
 }
 
+const AHORA = Date.now()
+
 export function ProductoCard({ codigo, nombre, precio, stock, stockMinimo, fechaVencimiento, sucursal }: ProductoCardProps) {
   const stockBajo = stock <= stockMinimo
   const proximoVencer = () => {
-    const dias = Math.ceil((new Date(fechaVencimiento).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+    const dias = Math.ceil((new Date(fechaVencimiento).getTime() - AHORA) / (1000 * 60 * 60 * 24))
     return dias <= 30 && dias > 0
   }
 

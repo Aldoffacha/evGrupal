@@ -21,7 +21,8 @@ export async function POST(request: Request) {
     const useCase = new RegistrarVenta(productRepo, ventaRepo)
     const venta = await useCase.ejecutar(body)
     return NextResponse.json(venta, { status: 201 })
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'Error al registrar venta' }, { status: 500 })
+  } catch (error) {
+    const mensaje = error instanceof Error ? error.message : 'Error al registrar venta'
+    return NextResponse.json({ error: mensaje }, { status: 500 })
   }
 }

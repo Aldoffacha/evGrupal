@@ -39,8 +39,10 @@ export class SupabaseVentaRepository implements IVentaRepository {
       .select('sucursalId, total, cantidad')
       .eq('productoId', productoId)
     const sucursales = await supabase.from('sucursales').select('id, nombre')
-    const mapa = new Map((sucursales.data || []).map((s: any) => [s.id, s.nombre]))
-    return (data || []).map((d: any) => ({
+    const mapa = new Map(
+      (sucursales.data || []).map((s: { id: string; nombre: string }) => [s.id, s.nombre])
+    )
+    return (data || []).map((d: { sucursalId: string; total: number; cantidad: number }) => ({
       sucursalNombre: mapa.get(d.sucursalId) || 'Desconocida',
       total: d.total,
       cantidad: d.cantidad,
