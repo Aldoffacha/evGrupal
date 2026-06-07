@@ -1,21 +1,43 @@
 import Link from "next/link";
+import { SupabaseProductoRepository } from "@/infrastructure/repositories/SupabaseProductoRepository";
+import { SupabaseVentaRepository } from "@/infrastructure/repositories/SupabaseVentaRepository";
+import { SupabaseSucursalRepository } from "@/infrastructure/repositories/SupabaseSucursalRepository";
+import { AlertaVencimiento } from "@/application/use-cases/alertas/AlertaVencimiento";
+import { AlertaStockBajo } from "@/application/use-cases/alertas/AlertaStockBajo";
 
-const stats = [
-  { label: "Productos en inventario", valor: "1,234", color: "bg-blue-500" },
-  { label: "Ventas del mes", valor: "Bs 45,678", color: "bg-emerald-500" },
-  { label: "Alertas activas", valor: "12", color: "bg-amber-500" },
-  { label: "Sucursales", valor: "3", color: "bg-purple-500" },
-];
+export const dynamic = "force-dynamic";
 
-const ventasRecientes = [
-  { id: "V-001", producto: "Paracetamol 500mg", cantidad: 10, total: 45.00, sucursal: "Central", fecha: "2026-06-05" },
-  { id: "V-002", producto: "Ibuprofeno 400mg", cantidad: 5, total: 28.50, sucursal: "Norte", fecha: "2026-06-05" },
-  { id: "V-003", producto: "Amoxicilina 500mg", cantidad: 8, total: 64.00, sucursal: "Central", fecha: "2026-06-04" },
-  { id: "V-004", producto: "Omeprazol 20mg", cantidad: 15, total: 97.50, sucursal: "Sur", fecha: "2026-06-04" },
-  { id: "V-005", producto: "Loratadina 10mg", cantidad: 12, total: 42.00, sucursal: "Norte", fecha: "2026-06-03" },
-];
+export default async function DashboardPage() {
+  const productoRepo = new SupabaseProductoRepository();
+  const ventaRepo = new SupabaseVentaRepository();
+  const sucursalRepo = new SupabaseSucursalRepository();
+  const [productos, ventas, sucursales, venc, stock] = await Promise.all([
+    productoRepo.listar(),
+    ventaRepo.listar(),
+    sucursalRepo.listar(),
+    new AlertaVencimiento(productoRepo).ejecutar(),
+    new AlertaStockBajo(productoRepo).ejecutar(),
+  ]);
 
-export default function DashboardPage() {
+  const mapaSucursal = new Map(sucursales.map((s) => [s.id, s.nombre]));
+  const totalVentas = ventas.reduce((sum, v) => sum + v.total, 0);
+
+  const stats = [
+    { label: "Productos en inventario", valor: String(productos.length), color: "bg-blue-500" },
+    { label: "Ventas totales", valor: `Bs ${totalVentas.toLocaleString()}`, color: "bg-emerald-500" },
+    { label: "Alertas activas", valor: String(venc.length + stock.length), color: "bg-amber-500" },
+    { label: "Sucursales", valor: String(sucursales.length), color: "bg-purple-500" },
+  ];
+
+  const ventasRecientes = ventas.slice(0, 5).map((v) => ({
+    id: v.id,
+    producto: v.productoNombre,
+    cantidad: v.cantidad,
+    total: v.total,
+    sucursal: mapaSucursal.get(v.sucursalId) || "—",
+    fecha: (v.fecha || "").slice(0, 10),
+  }));
+
   return (
     <div className="p-8">
       <h1 className="text-2xl font-bold text-gray-900 mb-6">Dashboard</h1>
@@ -49,6 +71,11 @@ export default function DashboardPage() {
               </tr>
             </thead>
             <tbody>
+              {ventasRecientes.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="py-8 text-center text-gray-400">No hay ventas registradas</td>
+                </tr>
+              )}
               {ventasRecientes.map((v) => (
                 <tr key={v.id} className="border-b border-gray-50 hover:bg-gray-50">
                   <td className="py-3 px-6 text-gray-900">{v.producto}</td>

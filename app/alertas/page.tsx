@@ -1,37 +1,49 @@
 import { AlertaBadge } from "@/components/ui/AlertaBadge";
+import { SupabaseProductoRepository } from "@/infrastructure/repositories/SupabaseProductoRepository";
+import { SupabaseSucursalRepository } from "@/infrastructure/repositories/SupabaseSucursalRepository";
+import { AlertaVencimiento } from "@/application/use-cases/alertas/AlertaVencimiento";
+import { AlertaStockBajo } from "@/application/use-cases/alertas/AlertaStockBajo";
 
-interface Alerta {
-  id: string
-  tipo: "vencimiento" | "stock_bajo"
-  mensaje: string
-  fecha?: string
-}
+export const dynamic = "force-dynamic";
 
-const alertas: Alerta[] = [
-  { id: "a1", tipo: "vencimiento", mensaje: "Dexametasona 4mg (Sur) vence en 19 dias", fecha: "2026-06-25" },
-  { id: "a2", tipo: "vencimiento", mensaje: "Omeprazol 20mg (Norte) vence en 29 dias", fecha: "2026-07-05" },
-  { id: "a3", tipo: "vencimiento", mensaje: "Amoxicilina 500mg (Central) vence en 65 dias", fecha: "2026-08-10" },
-  { id: "a4", tipo: "stock_bajo", mensaje: "Vitamina C 1000mg (Central) - stock en 0, minimo 10" },
-  { id: "a5", tipo: "stock_bajo", mensaje: "Omeprazol 20mg (Norte) - stock en 3, minimo 10" },
-  { id: "a6", tipo: "stock_bajo", mensaje: "Ibuprofeno 400mg (Central) - stock en 8, minimo 15" },
-]
+const AHORA = Date.now();
 
-export default function AlertasPage() {
-  const vencimiento = alertas.filter((a) => a.tipo === "vencimiento")
-  const stockBajo = alertas.filter((a) => a.tipo === "stock_bajo")
+export default async function AlertasPage() {
+  const repo = new SupabaseProductoRepository();
+  const sucursalRepo = new SupabaseSucursalRepository();
+  const [vencProds, stockProds, sucursales] = await Promise.all([
+    new AlertaVencimiento(repo).ejecutar(),
+    new AlertaStockBajo(repo).ejecutar(),
+    sucursalRepo.listar(),
+  ]);
+  const mapa = new Map(sucursales.map((s) => [s.id, s.nombre]));
+  const dias = (f: string) =>
+    Math.ceil((new Date(f).getTime() - AHORA) / (1000 * 60 * 60 * 24));
+
+  const vencimiento = vencProds.map((p) => ({
+    id: p.id,
+    mensaje: `${p.nombre} (${mapa.get(p.sucursalId) || "—"}) vence en ${dias(p.fechaVencimiento)} dias`,
+    fecha: p.fechaVencimiento,
+  }));
+  const stockBajo = stockProds.map((p) => ({
+    id: p.id,
+    mensaje: `${p.nombre} (${mapa.get(p.sucursalId) || "—"}) - stock en ${p.stock}, minimo ${p.stockMinimo}`,
+  }));
+  const total = vencimiento.length + stockBajo.length;
 
   return (
     <div className="p-8">
       <h1 className="text-2xl font-bold text-gray-900 mb-1">Alertas</h1>
-      <p className="text-sm text-gray-500 mb-8">{alertas.length} alertas activas</p>
+      <p className="text-sm text-gray-500 mb-8">{total} alertas activas</p>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <section>
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Proximos a vencer ({vencimiento.length})</h2>
           <div className="space-y-3">
             {vencimiento.map((a) => (
-              <AlertaBadge key={a.id} tipo={a.tipo} mensaje={a.mensaje} fecha={a.fecha} />
+              <AlertaBadge key={a.id} tipo="vencimiento" mensaje={a.mensaje} fecha={a.fecha} />
             ))}
+            {vencimiento.length === 0 && <p className="text-sm text-gray-400">Sin alertas de vencimiento.</p>}
           </div>
         </section>
 
@@ -39,8 +51,9 @@ export default function AlertasPage() {
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Stock bajo ({stockBajo.length})</h2>
           <div className="space-y-3">
             {stockBajo.map((a) => (
-              <AlertaBadge key={a.id} tipo={a.tipo} mensaje={a.mensaje} />
+              <AlertaBadge key={a.id} tipo="stock_bajo" mensaje={a.mensaje} />
             ))}
+            {stockBajo.length === 0 && <p className="text-sm text-gray-400">Sin alertas de stock bajo.</p>}
           </div>
         </section>
       </div>

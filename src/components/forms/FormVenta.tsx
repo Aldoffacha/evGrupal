@@ -1,39 +1,53 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 
-const productos = [
-  { id: "1", nombre: "Paracetamol 500mg", precio: 4.50, stock: 120 },
-  { id: "2", nombre: "Ibuprofeno 400mg", precio: 5.70, stock: 8 },
-  { id: "3", nombre: "Amoxicilina 500mg", precio: 8.00, stock: 45 },
-  { id: "4", nombre: "Omeprazol 20mg", precio: 6.50, stock: 3 },
-  { id: "5", nombre: "Loratadina 10mg", precio: 3.50, stock: 60 },
-  { id: "6", nombre: "Salbutamol Inhalador", precio: 25.00, stock: 15 },
-  { id: "7", nombre: "Dexametasona 4mg", precio: 9.00, stock: 25 },
-  { id: "8", nombre: "Vitamina C 1000mg", precio: 12.00, stock: 0 },
-];
-
-const sucursales = [
-  { id: "s1", nombre: "Central" },
-  { id: "s2", nombre: "Norte" },
-  { id: "s3", nombre: "Sur" },
-];
+type Producto = { id: string; nombre: string; precio: number; stock: number };
+type Sucursal = { id: string; nombre: string };
 
 export function FormVenta() {
+  const router = useRouter();
+  const [productos, setProductos] = useState<Producto[]>([]);
+  const [sucursales, setSucursales] = useState<Sucursal[]>([]);
   const [productoId, setProductoId] = useState("");
   const [cantidad, setCantidad] = useState("");
-  const [sucursalId, setSucursalId] = useState("s1");
+  const [sucursalId, setSucursalId] = useState("");
+  const [enviando, setEnviando] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/productos").then((r) => r.json()).then(setProductos).catch(() => {});
+    fetch("/api/sucursales")
+      .then((r) => r.json())
+      .then((data: Sucursal[]) => {
+        setSucursales(data);
+        if (data.length > 0) setSucursalId(data[0].id);
+      })
+      .catch(() => {});
+  }, []);
 
   const producto = productos.find((p) => p.id === productoId);
   const total = producto ? producto.precio * Number(cantidad) : 0;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (producto && Number(cantidad) > producto.stock) {
       alert("Stock insuficiente para realizar la venta");
       return;
     }
-    alert("Venta registrada con exito (modo demo)");
+    setEnviando(true);
+    try {
+      const res = await fetch("/api/ventas", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ productoId, cantidad: Number(cantidad), sucursalId }),
+      });
+      if (!res.ok) throw new Error("Error");
+      router.push("/ventas");
+    } catch {
+      alert("No se pudo registrar la venta.");
+      setEnviando(false);
+    }
   };
 
   return (
@@ -102,9 +116,10 @@ export function FormVenta() {
       <div className="flex gap-3 pt-2">
         <button
           type="submit"
-          className="px-6 py-2.5 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 transition-colors"
+          disabled={enviando}
+          className="px-6 py-2.5 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-60"
         >
-          Registrar Venta
+          {enviando ? "Registrando..." : "Registrar Venta"}
         </button>
         <button
           type="reset"
@@ -113,9 +128,6 @@ export function FormVenta() {
           Limpiar
         </button>
       </div>
-      <p className="text-xs text-gray-400 pt-2 border-t border-gray-100">
-        Modo demo: los datos no se persistiran hasta que se conecte con Supabase.
-      </p>
     </form>
   );
 }
